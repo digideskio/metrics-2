@@ -1,6 +1,7 @@
 {
+package grammar
 
-// initialization goes here
+var blahlbah = 3
 
 }
 
@@ -8,11 +9,7 @@ Root <- expr:(SelectStatement / DescribeStatement) _ EOF {
   return expr, nil
 }
 
-SelectStatement <-
-  _ ("select" KEY)?
-  list:ExpressionList
-  predicateClause:OptionalPredicateClause
-  propertyClause:PropertyClause {
+SelectStatement <- _ ("select" KEY)? list:ExpressionList predicateClause:OptionalPredicateClause propertyClause:PropertyClause {
   return makeSelect(list, predicateClause, propertyClause) // TODO: makeSelect
 }
 
@@ -28,7 +25,11 @@ DescribeAllStatement <-
   return makeDescribeAll(matchClause) // TODO: makeDescribeAll
 }
 
-OptionalMatchClause <- MatchClause / { return makeNullMatchClause() } // TODO: makeNullMatchClause
+OptionalMatchClause <- MatchClause / EmptyMatchClause
+
+EmptyMatchClause <- "" {
+  return makeNullMatchClause(), nil
+}
 
 MatchClause <-
   _ "match" KEY
@@ -64,7 +65,7 @@ PropertyClause <- clause:UncheckedPropertyClause {
   return checkPropertyClause(clause) // TODO: checkPropertyClause
 }
 
-OptionalPredicateClause <- PredicateClause / { makeNullPredicate() } // TODO: makeNullPredicate
+OptionalPredicateClause <- PredicateClause / "" { makeNullPredicate() /* TODO: makeNullPredicate */ }
 
 ExpressionList <-
   first:Expression
@@ -73,7 +74,7 @@ ExpressionList <-
   return append([]function.Expression{first}, rest...), nil // TODO: does this work?
 }
 
-Expression <- sum:ExpressionSum pipe:AddPipe { return addPipe(sum, pipe) } // TODO: implement addPipe
+Expression <- sum:ExpressionSum pipe:AddPipe { return addPipe(sum, pipe) /* TODO: implement addPipe */ }
 
 ExpressionSum <-
   first:ExpressionProduct
@@ -81,9 +82,9 @@ ExpressionSum <-
     pipes:OnePipe*
     op:(_ op:("+" / "-") {return op, nil})
     right:ExpressionProduct
-    { return makeExpressionSuffix(pipes, op, right) } // TODO: makeExpressionSuffix
+    { return makeExpressionSuffix(pipes, op, right) /* TODO: makeExpressionSuffix */ }
   )*
-  { return makeOperator(first, suffixes) } // TODO: makeOperator
+  { return makeOperator(first, suffixes) /* TODO: makeOperator */ }
 
 ExpressionProduct <-
   first:ExpressionAtom
@@ -98,27 +99,31 @@ ExpressionProduct <-
 OnePipe <-
   _ "|"
   _ name:Identifier // TODO: Identifier
-  arguments:(CallArguments / { return nil, nil })
+  arguments:(CallArguments / "" { return nil, nil })
   { return makeOnePipe(name, arguments) } // TODO: makeOnePipe
 
 CallArguments <-
   _ "("
-  arguments:((first:Expression rest:(_ "," right:Expression)*) / { return nil, nil })
+  arguments:((first:Expression rest:(_ "," right:Expression)*) / "" { return nil, nil })
   // TODO: group by
   _ ")"
   { return arguments, nil }
 
 ExpressionAtom <-
   core:ExpressionRaw
-  annotation:ExpressionAnnotation
-  { if annotation != "" { return makeAnnotation(core, annotation) } return core, nil } // TODO: makeAnnotation
+  annotation:ExpressionAnnotation {
+    if annotation != "" {
+      return makeAnnotation(core, annotation), nil
+    }
+    return core, nil
+  } // TODO: makeAnnotation
 
 ExpressionRaw <- ExpressionFunction / ExpressionMetric / _ "(" item:Expression _ ")" {return item, nil} / Duration / Scalar / String
 
 ExpressionAnnotationRequired <- _ "{" contents:[^}] "}" { return contents, nil }
-ExpressionAnnotation <- ExpressionAnnotationRequires / { return "", nil }
+ExpressionAnnotation <- ExpressionAnnotationRequires / "" { return "", nil }
 
-OptionalGroupBy <- GroupByClause / CollapseByClause / { return function.Groups{}, nil } // TODO: what to return here
+OptionalGroupBy <- GroupByClause / CollapseByClause / "" { return function.Groups{}, nil } // TODO: what to return here
 
 ExpressionFunction <-
   name:Identifier
@@ -127,7 +132,7 @@ ExpressionFunction <-
 
 ExpressionMetric <-
   name:Identifier
-  predicate: (_ "[" predicate:Predicate _ "]" { return predicate, nil } / { return makeNullPredicate() })
+  predicate: (_ "[" predicate:Predicate _ "]" { return predicate, nil } / "" { return makeNullPredicate() })
   { return makeMetricExpression(name, predicate) } // TODO: makeMetricExpression
 
 GroupByClause <-
@@ -202,15 +207,11 @@ _ "whitespace" <- [ \n\t\r]*
 
 EOF <- !.
 
-PropertyKey
-
-///
-
 PropertyKey <- "from" KEY / "to" KEY / "sample" KEY _ "by" KEY { return "sample", nil }
 
-PropertyValue <- Timestamp // ???
+PropertyValue <- Timestamp
 
-KEYWORD <-     # List of keywrods used throughout the code.
+KEYWORD <-
   "all" KEY /
   "and" KEY /
   "as" KEY /
@@ -232,12 +233,11 @@ NumberInteger <- "-"? NumberNatural
 NumberNatural <- "0" / [1-9] [0-9]*
 NumberFraction <- "." [0-9]+
 NumberExponent <- [eE] ("+" / "-")? [0-9]+
-
 Duration <- NumberInteger [a-z]+
 
 KEY <- !([a-zA-Z0-9])
 
-_  <-          (SPACE / COMMENT_TRAIL / COMMENT_BLOCK)* # Optional spaces
+_  <-          (SPACE / COMMENT_TRAIL / COMMENT_BLOCK)*
 COMMENT_TRAIL  <- "--" (!"\n" .)*
 COMMENT_BLOCK  <- "/*" (!"*/" .)* "*/"
 KEY <-         !ID_CONT
