@@ -196,78 +196,48 @@ Segment <- IDStart IDContinue*
 IDStart <- [a-zA-Z_]
 IDContinue <- IDStart / [0-9]
 
-Timestamp <- number:Number suffix:[a-z]* { return number + suffix, nil } / LiteralString / _ "now" KEY { return "now", nil }
+Timestamp <- number:NumberInteger suffix:[a-z]* { return number + suffix, nil } / LiteralString / _ "now" KEY { return "now", nil }
 
 _ "whitespace" <- [ \n\t\r]*
 
 EOF <- !.
 
+PropertyKey
+
 ///
 
-PROPERTY_KEY <-
-  (<"from"> /
-  <"to"> /
-  <"resolution"> /
-  <"sample"> KEY _ "by") KEY
+PropertyKey <- "from" KEY / "to" KEY / "sample" KEY _ "by" KEY { return "sample", nil }
 
-PROPERTY_VALUE <- TIMESTAMP
+PropertyValue <- Timestamp // ???
 
 KEYWORD <-     # List of keywrods used throughout the code.
-  "all" /
-  "and" /
-  "as" /
-  "by" /
-  "describe" /
-  "group" /
-  "collapse" /
-  "in" /
-  "match" /
-  "not" /
-  "or" /
-  "select" /
-  "where" /
-  "metrics" /
+  "all" KEY /
+  "and" KEY /
+  "as" KEY /
+  "by" KEY /
+  "describe" KEY /
+  "group" KEY /
+  "collapse" KEY /
+  "in" KEY /
+  "match" KEY /
+  "not" KEY /
+  "or" KEY /
+  "select" KEY /
+  "where" KEY /
+  "metrics" KEY /
   PROPERTY_KEY
 
-# Operators
-# =========
+Number <- NumberInteger NumberFraction? NumberExponent?
+NumberInteger <- "-"? NumberNatural
+NumberNatural <- "0" / [1-9] [0-9]*
+NumberFraction <- "." [0-9]+
+NumberExponent <- [eE] ("+" / "-")? [0-9]+
 
-OP_PIPE <- "|"
-OP_ADD  <- "+"
-OP_SUB  <- "-"
-OP_MULT <- "*"
-OP_DIV  <- "/"
-OP_AND  <- "and" KEY
-OP_OR   <- "or" KEY
-OP_NOT  <- "not" KEY
+Duration <- NumberInteger [a-z]+
 
+KEY <- !([a-zA-Z0-9])
 
-QUOTE_SINGLE <- "'"
-QUOTE_DOUBLE <- '"'
-STRING       <- QUOTE_SINGLE <(!QUOTE_SINGLE CHAR)*> QUOTE_SINGLE / QUOTE_DOUBLE <(!QUOTE_DOUBLE CHAR)*> QUOTE_DOUBLE
-CHAR         <- "\\" (ESCAPE_CLASS / QUOTE_SINGLE / QUOTE_DOUBLE) / ! ESCAPE_CLASS .
-ESCAPE_CLASS <- "`" / "\\"
-
-# Numerical elements
-# ==================
-
-# Definition for floating point numbers.
-# modelled after JSON (http://json.org/)
-NUMBER          <- NUMBER_INTEGER NUMBER_FRACTION? NUMBER_EXP?
-NUMBER_NATURAL  <- "0" / [1-9] [0-9]*
-NUMBER_FRACTION <- "." [0-9]+
-NUMBER_INTEGER  <- "-"? NUMBER_NATURAL
-NUMBER_EXP      <- "e" ("+" / "-")? [0-9]+
-
-DURATION <- NUMBER [a-z]+ KEY
-
-# Syntactic elements
-# ==================
-
-PAREN_OPEN <-  "("
-PAREN_CLOSE <- ")"
-COMMA <-       ","
-_  <-          (SPACE / COMMENT_TRAIL / COMMENT_BLOCK) * # Optional spaces
+_  <-          (SPACE / COMMENT_TRAIL / COMMENT_BLOCK)* # Optional spaces
 COMMENT_TRAIL  <- "--" (!"\n" .)*
 COMMENT_BLOCK  <- "/*" (!"*/" .)* "*/"
 KEY <-         !ID_CONT
