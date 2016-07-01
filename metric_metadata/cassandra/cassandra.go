@@ -116,10 +116,10 @@ func newCassandraDatabase(clusterConfig *gocql.ClusterConfig) (cassandraDatabase
 
 // AddMetricName inserts the metric to Cassandra.
 func (db *cassandraDatabase) AddMetricName(metricKey api.MetricKey, tagSet api.TagSet) error {
-	if err := db.session.Query("INSERT INTO metric_names (metric_key, tag_set) VALUES (?, ?)", metricKey, tagSet.Serialize()).Exec(); err != nil {
+	if err := db.session.Query("INSERT INTO metric_names (metric_key, tag_set) VALUES (?, ?) USING TTL 864000", metricKey, tagSet.Serialize()).Exec(); err != nil {
 		return err
 	}
-	if err := db.session.Query("UPDATE metric_name_set SET metric_names = metric_names + ? WHERE shard = ?", []string{string(metricKey)}, 0).Exec(); err != nil {
+	if err := db.session.Query("UPDATE metric_name_set USING TTL 864000 SET metric_names = metric_names + ? WHERE shard = ?", []string{string(metricKey)}, 0).Exec(); err != nil {
 		return err
 	}
 	return nil
@@ -128,8 +128,8 @@ func (db *cassandraDatabase) AddMetricName(metricKey api.MetricKey, tagSet api.T
 
 // AddMetricNames adds many metric names to Cassandra (equivalent to calling AddMetricName many times, but more performant)
 func (db *cassandraDatabase) AddMetricNames(metrics []api.TaggedMetric) error {
-	queryInsert := "INSERT INTO metric_names (metric_key, tag_set) VALUES (?, ?)"
-	queryUpdate := "UPDATE metric_name_set SET metric_names = metric_names + ? WHERE shard = ?"
+	queryInsert := "INSERT INTO metric_names (metric_key, tag_set) VALUES (?, ?) USING TTL 864000"
+	queryUpdate := "UPDATE metric_name_set USING TTL 864000 SET metric_names = metric_names + ? WHERE shard = ?"
 
 	//For every query queue up an insert and a shard update and start streaming them.
 	for _, m := range metrics {
@@ -163,7 +163,7 @@ func (db *cassandraDatabase) AddMetricNames(metrics []api.TaggedMetric) error {
 
 func (db *cassandraDatabase) AddToTagIndex(tagKey string, tagValue string, metricKey api.MetricKey) error {
 	err := db.session.Query(
-		"UPDATE tag_index SET metric_keys = metric_keys + ? WHERE tag_key = ? AND tag_value = ?",
+		"UPDATE tag_index USING TTL 864000 SET metric_keys = metric_keys + ? WHERE tag_key = ? AND tag_value = ?",
 		[]string{string(metricKey)},
 		tagKey,
 		tagValue,
