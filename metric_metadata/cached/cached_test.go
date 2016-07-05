@@ -375,6 +375,7 @@ func TestInflightError(t *testing.T) {
 
 	// Routine Two
 	goWgTwo.Add(1)
+	underlying.calledWG.Add(1)
 	go func() {
 		goWgTwo.Done()
 		_, err := cached.GetAllTags("metric_one", metadata.Context{})
